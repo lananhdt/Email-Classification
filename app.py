@@ -7,18 +7,6 @@ import matplotlib.pyplot as plt
 import seaborn as sns
 from sklearn.manifold import TSNE
 
-from corrections_handler import count_corrections, save_correction, get_corrections_df
-
-from tfidf_classifier import (
-    predict_tfidf,
-    evaluate_svm,
-    evaluate_naive_bayes,
-)
-from embedding_classifier import (
-    predict_embedding,
-    evaluate_knn,   # must return (metrics_df, best_k, cms_by_k)
-)
-
 from email_handler.data_loader import load_data
 from email_handler.tfidf_classifier import predict_tfidf, evaluate_svm, evaluate_naive_bayes
 from email_handler.embedding_classifier import predict_embedding, evaluate_knn
