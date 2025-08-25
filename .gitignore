@@ -9,3 +9,5 @@ __pycache__/
 cache/
 models/
 data/corrections.json
+credentials.json
+token.json
