@@ -4,7 +4,7 @@ import faiss
 from sklearn.model_selection import train_test_split
 from sklearn.metrics import confusion_matrix, accuracy_score, precision_recall_fscore_support
 
-from data_loader import load_data
+from .data_loader import load_data
 
 # Sentence-Transformer (E5 đa ngôn ngữ)
 from sentence_transformers import SentenceTransformer
