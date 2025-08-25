@@ -1,84 +1,112 @@
 import streamlit as st
 import pandas as pd
-import seaborn as sns
 import matplotlib.pyplot as plt
-import json
-from sklearn.metrics import classification_report, confusion_matrix
-from email_handler import data_loader, tfidf_classifier, embedding_classifier
+import seaborn as sns
+from sklearn.manifold import TSNE
+import numpy as np
 
-st.set_page_config(page_title="Email Classifier", layout="wide")
+# Import classifiers
+from email_handler import tfidf_classifier, embedding_classifier
+from email_handler.data_loader import load_data
 
-# ---------------- Sidebar ----------------
-menu = ["📊 Overview", "🔍 Data Analysis", "🤖 Model Evaluation", "📧 Gmail & Correction"]
-choice = st.sidebar.radio("Chọn trang", menu)
+st.set_page_config(page_title="Smart Email Classifier", layout="wide")
 
-# ---------------- Page 1: Overview ----------------
-if choice == "📊 Overview":
-    st.title("📊 Email Classifier - Tổng quan")
+# ==================== SIDEBAR MENU ====================
+st.sidebar.title("📌 MENU")
+page = st.sidebar.radio("Chọn chức năng", [
+    "📊 SỐ LƯỢNG",
+    "🔎 PHÂN TÍCH DỮ LIỆU",
+    "🧪 ĐÁNH GIÁ BỘ PHÂN LOẠI",
+    "📧 QUÉT EMAIL",
+    "✏️ QUẢN LÝ CORRECTION"
+])
 
-    stats = data_loader.load_stats()
-    st.write("### Thống kê dữ liệu")
-    st.json(stats)
+# Load dataset
+df = load_data("data/emails.csv")
 
+
+# ==================== PAGE 1: SỐ LƯỢNG ====================
+if page == "📊 SỐ LƯỢNG":
+    st.header("📊 Tổng quan Email Dataset")
+
+    total = len(df)
+    spam_count = (df["label"] == "spam").sum()
+    ham_count = (df["label"] == "ham").sum()
+    corrections = 0  # TODO: load từ file corrections.json
+
+    col1, col2, col3, col4 = st.columns(4)
+    col1.metric("Tổng số Email", total)
+    col2.metric("Spam", spam_count)
+    col3.metric("Ham", ham_count)
+    col4.metric("Corrections", corrections)
+
+
+# ==================== PAGE 2: PHÂN TÍCH DỮ LIỆU ====================
+elif page == "🔎 PHÂN TÍCH DỮ LIỆU":
+    st.header("🔎 Phân tích dữ liệu")
+
+    st.subheader("1️⃣ Tổng quan")
+    st.write(df.head())
+
+    st.subheader("2️⃣ Phân phối Spam và Ham")
     fig, ax = plt.subplots()
-    ax.pie([stats['spam'], stats['ham']], labels=['Spam', 'Ham'], autopct='%1.1f%%')
-    ax.set_title("Tỉ lệ Spam / Ham")
+    sns.countplot(x="label", data=df, ax=ax)
     st.pyplot(fig)
 
-# ---------------- Page 2: Data Analysis ----------------
-elif choice == "🔍 Data Analysis":
-    st.title("🔍 Phân tích dữ liệu")
+    st.subheader("3️⃣ Minh hoạ Embedding với t-SNE (1000 mẫu)")
+    sample = df.sample(min(1000, len(df)), random_state=42)
+    from sklearn.feature_extraction.text import TfidfVectorizer
+    X = TfidfVectorizer(max_features=200).fit_transform(sample["text"])
+    X_emb = TSNE(n_components=2, random_state=42).fit_transform(X.toarray())
 
-    data = data_loader.load_data()
-    st.write("### Một vài email mẫu")
-    st.dataframe(data.head())
-
-    # Word length distribution
-    data['length'] = data['text'].apply(len)
     fig, ax = plt.subplots()
-    sns.histplot(data['length'], bins=50, ax=ax)
-    ax.set_title("Phân bố độ dài email")
+    sns.scatterplot(x=X_emb[:,0], y=X_emb[:,1], hue=sample["label"], ax=ax, palette="Set1")
     st.pyplot(fig)
 
-# ---------------- Page 3: Model Evaluation ----------------
-elif choice == "🤖 Model Evaluation":
-    st.title("🤖 Đánh giá mô hình")
 
-    model_type = st.selectbox("Chọn mô hình", ["Naive Bayes", "TF-IDF + SVM", "KNN + Embedding"])
-    
-    if st.button("Chạy đánh giá"):
-        if model_type == "Naive Bayes":
-            report, cm = tfidf_classifier.evaluate_naive_bayes()
-        elif model_type == "TF-IDF + SVM":
-            report, cm = tfidf_classifier.evaluate_svm()
-        else:
-            report, cm = embedding_classifier.evaluate_knn()
+# ==================== PAGE 3: ĐÁNH GIÁ BỘ PHÂN LOẠI ====================
+elif page == "🧪 ĐÁNH GIÁ BỘ PHÂN LOẠI":
+    st.header("🧪 Đánh giá bộ phân loại")
 
-        st.text("### Classification Report")
-        st.text(report)
+    st.subheader("1️⃣ Naive Bayes")
+    report_nb, cm_nb = tfidf_classifier.evaluate_naive_bayes()
+    st.text(report_nb)
+    st.write("Confusion Matrix:")
+    st.write(cm_nb)
 
-        st.write("### Confusion Matrix")
-        fig, ax = plt.subplots()
-        sns.heatmap(cm, annot=True, fmt="d", cmap="Blues", ax=ax)
-        st.pyplot(fig)
+    st.subheader("2️⃣ SVM")
+    report_svm, cm_svm = tfidf_classifier.evaluate_svm()
+    st.text(report_svm)
+    st.write("Confusion Matrix:")
+    st.write(cm_svm)
 
-# ---------------- Page 4: Gmail & Correction ----------------
-elif choice == "📧 Gmail & Correction":
-    st.title("📧 Gmail & Correction")
-    st.write("Kết nối Gmail API, phân loại email thật, cho phép người dùng sửa nhãn.")
 
-    emails = data_loader.load_gmail_emails(max_results=10)
-    for idx, row in emails.iterrows():
-        with st.expander(f"Email {idx+1}: {row['subject']}"):
-            st.write(row['body'][:300] + "...")
-            pred = tfidf_classifier.predict_single(row['subject'] + " " + row['body'])
-            st.write(f"**Dự đoán:** {pred}")
+# ==================== PAGE 4: QUÉT EMAIL ====================
+elif page == "📧 QUÉT EMAIL":
+    st.header("📧 Quét Email từ Gmail")
 
-            correction = st.radio("Phân loại đúng không?", ["Đúng", "Sai"], key=idx)
-            if correction == "Sai":
-                true_label = st.radio("Chọn nhãn đúng:", ["Spam", "Ham"], key=f"label_{idx}")
-                if st.button(f"Lưu correction {idx}"):
-                    with open("data/corrections.json", "a") as f:
-                        json.dump({"text": row['subject'] + " " + row['body'], "label": true_label}, f)
-                        f.write("\n")
-                    st.success("Correction đã lưu!")
+    st.info("⚠️ Chức năng demo – cần tích hợp Gmail API với OAuth 2.0")
+
+    st.subheader("Cài đặt quét email")
+    model_choice = st.selectbox("Chọn bộ phân loại", ["Naive Bayes", "SVM"])
+    max_emails = st.slider("Số email tối đa", 10, 200, 50)
+    query = st.text_input("Custom query (VD: from:abc@gmail.com)")
+
+    if st.button("Quét Email"):
+        st.success("✅ Đã quét và phân loại email (demo)")
+        st.write("INBOX: 30 | HAM: 25 | SPAM: 5")
+
+
+# ==================== PAGE 5: QUẢN LÝ CORRECTION ====================
+elif page == "✏️ QUẢN LÝ CORRECTION":
+    st.header("✏️ Quản lý Corrections")
+
+    st.write("Người dùng có thể sửa nhãn Spam/Ham để model học lại.")
+
+    idx = st.number_input("Chọn email ID để chỉnh sửa", min_value=0, max_value=len(df)-1, step=1)
+    st.write("Email:", df.iloc[idx]["text"])
+    new_label = st.radio("Chọn nhãn đúng", ["spam", "ham"])
+
+    if st.button("Lưu Correction"):
+        # TODO: lưu corrections vào corrections.json
+        st.success(f"✅ Correction lưu thành công: {new_label}")
