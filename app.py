@@ -70,7 +70,7 @@ st.session_state.page = choice
 
 def goto(page_name:str):
     st.session_state.page = page_name
-    st.experimental_rerun()
+    st.rerun()
 
 # ================== DATA ==================
 DATA_PATH = "data/emails.csv"
