@@ -26,6 +26,9 @@ from email_handler.gmail_handler import (
 )
 
 # ================== PAGE CONFIG & THEME ==================
+if 'page' not in st.session_state:
+    st.session_state.page = "Tổng quan"
+    
 st.set_page_config(page_title="Email Classifier", layout="wide", page_icon="📧")
 
 st.markdown("""
