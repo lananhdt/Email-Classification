@@ -1,94 +1,63 @@
-import os
-import joblib
-from sklearn.feature_extraction.text import TfidfVectorizer
-from sklearn.naive_bayes import MultinomialNB
-from sklearn.svm import LinearSVC
-from sklearn.pipeline import Pipeline
-from sklearn.metrics import classification_report, confusion_matrix
+import numpy as np
+import pandas as pd
 from sklearn.model_selection import train_test_split
-from .data_loader import load_data
+from sklearn.metrics import classification_report, confusion_matrix, accuracy_score, precision_recall_fscore_support
+from sklearn.feature_extraction.text import TfidfVectorizer
+from sklearn.svm import LinearSVC
+from sklearn.naive_bayes import MultinomialNB
 
-MODEL_NB = "models/naive_bayes.joblib"
-MODEL_SVM = "models/tfidf_svm.joblib"
+from data_loader import load_data
 
+# Cache đơn giản ở module scope
+_vectorizer = None
+_model_svm = None
+_model_nb = None
+_labels = ["ham", "spam"]
 
-# ===================== TRAIN MODELS =====================
-def train_naive_bayes(file_path="data/emails.csv"):
-    df = load_data(file_path)
-    X_train, X_test, y_train, y_test = train_test_split(
-        df["text"], df["label"], test_size=0.2, random_state=42
-    )
+def _prepare():
+    global _vectorizer, _model_svm, _model_nb
+    if _vectorizer is not None and _model_svm is not None and _model_nb is not None:
+        return
+    df = load_data()
+    if df.empty:  # tránh vỡ
+        df = pd.DataFrame({"text":["hello","win money now"], "label":["ham","spam"]})
+    X_train, X_test, y_train, y_test = train_test_split(df["text"], df["label"], test_size=0.2, random_state=42, stratify=df["label"])
+    _vectorizer = TfidfVectorizer(max_features=30000, ngram_range=(1,2))
+    Xtr = _vectorizer.fit_transform(X_train)
+    Xte = _vectorizer.transform(X_test)
+    # models
+    _model_svm = LinearSVC()
+    _model_svm.fit(Xtr, y_train)
+    _model_nb = MultinomialNB()
+    _model_nb.fit(Xtr, y_train)
+    # store test for evaluation
+    _prepare.Xte, _prepare.yte = Xte, y_test
 
-    clf = Pipeline([
-        ("tfidf", TfidfVectorizer(stop_words="english")),
-        ("nb", MultinomialNB())
-    ])
-    clf.fit(X_train, y_train)
+def _metrics(y_true, y_pred):
+    acc = accuracy_score(y_true, y_pred)
+    p, r, f1, _ = precision_recall_fscore_support(y_true, y_pred, average="binary", pos_label="spam", zero_division=0)
+    return {"accuracy":acc, "precision":p, "recall":r, "f1":f1}
 
-    os.makedirs("models", exist_ok=True)
-    joblib.dump(clf, MODEL_NB)
+def predict_tfidf(text: str) -> str:
+    _prepare()
+    X = _vectorizer.transform([text])
+    pred = _model_svm.predict(X)[0]
+    return pred
 
-    print(f"✅ Naive Bayes model saved at {MODEL_NB}")
+def evaluate_svm(return_metrics=False):
+    _prepare()
+    y_pred = _model_svm.predict(_prepare.Xte)
+    rep = classification_report(_prepare.yte, y_pred, digits=4)
+    cm = confusion_matrix(_prepare.yte, y_pred, labels=_labels)
+    if return_metrics:
+        return rep, cm, _metrics(_prepare.yte, y_pred)
+    return rep, cm
 
-    preds = clf.predict(X_test)
-    return classification_report(y_test, preds), confusion_matrix(y_test, preds)
-
-
-def train_svm(file_path="data/emails.csv"):
-    df = load_data(file_path)
-    X_train, X_test, y_train, y_test = train_test_split(
-        df["text"], df["label"], test_size=0.2, random_state=42
-    )
-
-    clf = Pipeline([
-        ("tfidf", TfidfVectorizer(stop_words="english")),
-        ("svm", LinearSVC())
-    ])
-    clf.fit(X_train, y_train)
-
-    os.makedirs("models", exist_ok=True)
-    joblib.dump(clf, MODEL_SVM)
-
-    print(f"✅ SVM model saved at {MODEL_SVM}")
-
-    preds = clf.predict(X_test)
-    return classification_report(y_test, preds), confusion_matrix(y_test, preds)
-
-
-# ===================== EVALUATE MODELS =====================
-def evaluate_naive_bayes(file_path="data/emails.csv"):
-    if os.path.exists(MODEL_NB):
-        print("ℹ️ Loading existing Naive Bayes model...")
-        clf = joblib.load(MODEL_NB)
-
-        df = load_data(file_path)
-        _, X_test, _, y_test = train_test_split(
-            df["text"], df["label"], test_size=0.2, random_state=42
-        )
-
-        preds = clf.predict(X_test)
-        return classification_report(y_test, preds), confusion_matrix(y_test, preds)
-    else:
-        return train_naive_bayes(file_path)
-
-
-def evaluate_svm(file_path="data/emails.csv"):
-    if os.path.exists(MODEL_SVM):
-        print("ℹ️ Loading existing SVM model...")
-        clf = joblib.load(MODEL_SVM)
-
-        df = load_data(file_path)
-        _, X_test, _, y_test = train_test_split(
-            df["text"], df["label"], test_size=0.2, random_state=42
-        )
-
-        preds = clf.predict(X_test)
-        return classification_report(y_test, preds), confusion_matrix(y_test, preds)
-    else:
-        return train_svm(file_path)
-
-
-# ===================== PREDICT SINGLE =====================
-def predict_single(text, model_path=MODEL_NB):
-    clf = joblib.load(model_path)
-    return clf.predict([text])[0]
+def evaluate_naive_bayes(return_metrics=False):
+    _prepare()
+    y_pred = _model_nb.predict(_prepare.Xte)
+    rep = classification_report(_prepare.yte, y_pred, digits=4)
+    cm = confusion_matrix(_prepare.yte, y_pred, labels=_labels)
+    if return_metrics:
+        return rep, cm, _metrics(_prepare.yte, y_pred)
+    return rep, cm
