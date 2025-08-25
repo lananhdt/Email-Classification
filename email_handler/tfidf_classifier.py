@@ -20,8 +20,7 @@ def train_naive_bayes(file_path="data/emails.csv"):
         ("nb", MultinomialNB())
     ])
     clf.fit(X_train, y_train)
-    joblib.dump(clf, MODEL_NB)
-
+    
     # tạo thư mục models nếu chưa có
     os.makedirs("models", exist_ok=True)
 
