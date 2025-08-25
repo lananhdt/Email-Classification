@@ -6,7 +6,7 @@ from sklearn.feature_extraction.text import TfidfVectorizer
 from sklearn.svm import LinearSVC
 from sklearn.naive_bayes import MultinomialNB
 
-from data_loader import load_data
+from .data_loader import load_data
 
 # Cache đơn giản ở module scope
 _vectorizer = None
