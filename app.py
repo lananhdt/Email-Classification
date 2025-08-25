@@ -21,9 +21,7 @@ from email_handler.embedding_classifier import (
     predict_embedding, evaluate_knn
 )
 from email_handler.gmail_handler import (
-    get_gmail_service,
-    get_email_list_with_ids,  # có id + snippet
-    get_email_list,           # fallback
+    get_gmail_service, get_email_list_with_ids, get_email_list,
     ensure_label, add_label, move_message
 )
 
@@ -37,7 +35,6 @@ st.markdown("""
   --card-bg: rgba(255,255,255,0.04);
   --card-br: 18px;
   --card-bd: 1px solid rgba(255,255,255,0.08);
-  --accent: #16a34a;
 }
 .block-container { padding-top: 1.6rem; padding-bottom: 2rem; }
 .big-title{
@@ -47,14 +44,11 @@ st.markdown("""
   margin-bottom: .25rem;
 }
 .subtitle{ color:#cbd5e1; font-size:16px; margin-bottom: 28px; }
-.card{ background: var(--card-bg); border: var(--card-bd);
-  border-radius: var(--card-br); padding: 16px; }
 .metric{ background: var(--card-bg); border: var(--card-bd);
   border-radius: 16px; padding: 14px; }
 .metric .label{ color:#9ca3af; font-size:12px; }
 .metric .value{ font-size:26px; font-weight:800; }
 .stButton>button{ border-radius: 14px; padding: .75rem 1rem; font-weight:700; }
-.stRadio>div{ gap:.5rem }
 hr{ border: none; border-top: 1px solid rgba(255,255,255,0.08); margin: 16px 0 8px 0;}
 </style>
 """, unsafe_allow_html=True)
@@ -148,7 +142,7 @@ def page_home():
         goto("📧 Quét Gmail & Corrections")
 
 def page_analysis_overview():
-    st.header("📊 Phân tích Dữ liệu")
+    st.header("📊 Phân tích Dữ liệu & Thống kê")
 
     if df.empty:
         st.info("Dataset trống.")
@@ -224,7 +218,7 @@ def page_evaluate_models():
     # So sánh TF-IDF vs KNN best-k
     st.subheader("So sánh TF-IDF vs KNN (best-k)")
     try:
-        if svm_metrics and "accuracy" in svm_metrics:
+        if svm_metrics:
             knn_best = metrics_df[metrics_df["k"]==best_k].iloc[0]
             comp = pd.DataFrame([
                 {"model":"TF-IDF+SVM", "Accuracy":svm_metrics.get("accuracy",np.nan),
@@ -267,7 +261,7 @@ def page_gmail_and_corrections():
             st.success(f"Đã lấy {len(items)} email.")
             st.write(f"Query đang dùng: `{query or '(mặc định)'}`")
 
-            # Lưới 3 cột giống ảnh: INBOX | MIDDLE | SPAM
+            # Lưới 3 cột: INBOX | MID | SPAM
             c_inb, c_mid, c_spm = st.columns(3)
             inbox_cnt = spam_cnt = 0
 
@@ -330,7 +324,7 @@ def page_gmail_and_corrections():
 
         except Exception as e:
             st.error(f"Gmail error: {e}")
-            st.info("Đặt `credentials.json` ở thư mục gốc (hoặc dùng secrets). Nếu chạy trên Cloud, tạo token local một lần rồi upload `token.pickle`.")
+            st.info("Local: dùng client_secret.json. Cloud: dùng Secrets. Nếu chạy Cloud, tạo token local một lần rồi upload token.pickle.")
 
     st.markdown("---")
     st.subheader("📋 Corrections đã lưu")
