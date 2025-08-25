@@ -35,6 +35,15 @@ def train_knn(file_path="data/emails.csv"):
     knn.fit(X_train_emb, y_train)
     joblib.dump(knn, MODEL_KNN)
 
+    # ✅ tạo thư mục models nếu chưa có
+    os.makedirs("models", exist_ok=True)
+
+    joblib.dump(clf, MODEL_KNN)
+    joblib.dump(embedder, MODEL_EMBEDDING)
+
+    print(f"✅ KNN model saved at {MODEL_KNN}")
+    print(f"✅ Embedding model saved at {MODEL_EMBEDDING}")
+    
     preds = knn.predict(X_test_emb)
     return classification_report(y_test, preds), confusion_matrix(y_test, preds)
 
