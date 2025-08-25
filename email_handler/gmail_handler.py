@@ -1,64 +1,59 @@
 import os
-from google.oauth2.credentials import Credentials
+import pickle
+import json
+import streamlit as st
 from google_auth_oauthlib.flow import InstalledAppFlow
-from google.auth.transport.requests import Request
 from googleapiclient.discovery import build
+from google.auth.transport.requests import Request
 
-SCOPES = ['https://www.googleapis.com/auth/gmail.modify']  # modify để gán label/di chuyển
+# Phạm vi Gmail API
+SCOPES = ['https://www.googleapis.com/auth/gmail.modify']
 
-def authenticate_gmail():
+def get_credentials():
     creds = None
-    if os.path.exists('token.json'):
-        creds = Credentials.from_authorized_user_file('token.json', SCOPES)
+    token_path = "token.pickle"
+
+    # Nếu đã có token -> load
+    if os.path.exists(token_path):
+        with open(token_path, "rb") as token:
+            creds = pickle.load(token)
+
+    # Nếu chưa có hoặc hết hạn
     if not creds or not creds.valid:
         if creds and creds.expired and creds.refresh_token:
             creds.refresh(Request())
         else:
-            flow = InstalledAppFlow.from_client_secrets_file('credentials.json', SCOPES)
+            # Local: dùng client_secret.json
+            if os.path.exists("client_secret.json"):
+                flow = InstalledAppFlow.from_client_secrets_file("client_secret.json", SCOPES)
+            else:
+                # Streamlit Cloud: đọc từ st.secrets
+                creds_info = json.loads(st.secrets["gcp"]["client_secret"])
+                flow = InstalledAppFlow.from_client_config(creds_info, SCOPES)
+
+            # Với Cloud không dùng local server, dùng console
             creds = flow.run_local_server(port=0)
-        with open('token.json', 'w') as token:
-            token.write(creds.to_json())
+
+        # Lưu token để lần sau khỏi đăng nhập lại
+        with open(token_path, "wb") as token:
+            pickle.dump(creds, token)
+
     return creds
 
 def get_gmail_service():
-    creds = authenticate_gmail()
-    return build('gmail', 'v1', credentials=creds)
+    creds = get_credentials()
+    service = build('gmail', 'v1', credentials=creds)
+    return service
 
-# ---- Reads ----
-def get_email_list(service, max_results=10):
-    results = service.users().messages().list(userId='me', maxResults=max_results).execute()
+def get_email_list(service, max_results=10, query=''):
+    results = service.users().messages().list(userId='me', maxResults=max_results, q=query).execute()
     messages = results.get('messages', [])
-    out = []
-    for m in messages:
-        msg = service.users().messages().get(userId='me', id=m["id"]).execute()
-        out.append(msg.get("snippet",""))
-    return out
-
-def get_email_list_with_ids(service, max_results=10):
-    results = service.users().messages().list(userId='me', maxResults=max_results).execute()
-    messages = results.get('messages', [])
-    out = []
-    for m in messages:
-        msg = service.users().messages().get(userId='me', id=m["id"]).execute()
-        out.append({"id": m["id"], "snippet": msg.get("snippet","")})
-    return out
-
-# ---- Labels & Move ----
-def ensure_label(service, label_name="AI_CORRECTED"):
-    labels = service.users().labels().list(userId='me').execute().get("labels", [])
-    for lb in labels:
-        if lb["name"] == label_name:
-            return lb["id"]
-    created = service.users().labels().create(userId='me', body={"name": label_name}).execute()
-    return created["id"]
-
-def add_label(service, msg_id, label_id):
-    body = {"addLabelIds":[label_id], "removeLabelIds":[]}
-    service.users().messages().modify(userId='me', id=msg_id, body=body).execute()
-
-def move_message(service, msg_id, to_spam=True):
-    if to_spam:
-        body = {"addLabelIds":["SPAM"], "removeLabelIds":["INBOX"]}
-    else:
-        body = {"addLabelIds":["INBOX"], "removeLabelIds":["SPAM"]}
-    service.users().messages().modify(userId='me', id=msg_id, body=body).execute()
+    emails = []
+    for msg in messages:
+        msg_data = service.users().messages().get(userId='me', id=msg['id']).execute()
+        snippet = msg_data.get('snippet', '')
+        emails.append({
+            'id': msg['id'],
+            'snippet': snippet
+        })
+    return emails
