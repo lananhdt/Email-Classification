@@ -8,6 +8,11 @@ import numpy as np
 # Import classifiers
 from email_handler import tfidf_classifier, embedding_classifier
 from email_handler.data_loader import load_data
+from email_handler.corrections_handler import (
+    count_corrections,
+    save_correction,
+    get_corrections_df,
+)
 
 st.set_page_config(page_title="Smart Email Classifier", layout="wide")
 
@@ -32,7 +37,7 @@ if page == "📊 SỐ LƯỢNG":
     total = len(df)
     spam_count = (df["label"] == "spam").sum()
     ham_count = (df["label"] == "ham").sum()
-    corrections = 0  # TODO: load từ file corrections.json
+    corrections = count_corrections()
 
     col1, col2, col3, col4 = st.columns(4)
     col1.metric("Tổng số Email", total)
@@ -108,5 +113,8 @@ elif page == "✏️ QUẢN LÝ CORRECTION":
     new_label = st.radio("Chọn nhãn đúng", ["spam", "ham"])
 
     if st.button("Lưu Correction"):
-        # TODO: lưu corrections vào corrections.json
+        save_correction(df.iloc[idx]["text"], new_label)
         st.success(f"✅ Correction lưu thành công: {new_label}")
+
+    st.subheader("📋 Danh sách Corrections đã lưu")
+    st.dataframe(get_corrections_df())
