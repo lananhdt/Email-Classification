@@ -20,13 +20,11 @@ from embedding_classifier import (
     evaluate_knn,   # must return (metrics_df, best_k, cms_by_k)
 )
 
-from gmail_handler import (
-    get_gmail_service,
-    get_email_list_with_ids,
-    get_email_list,           # back-compat (snippets only)
-    ensure_label, add_label,
-    move_message,
-)
+from email_handler.data_loader import load_data
+from email_handler.tfidf_classifier import predict_tfidf, evaluate_svm, evaluate_naive_bayes
+from email_handler.embedding_classifier import predict_embedding, evaluate_knn
+from email_handler.corrections_handler import count_corrections, save_correction, get_corrections_df
+from email_handler.gmail_handler import get_gmail_service, get_email_list_with_ids, get_email_list, ensure_label, add_label, move_message
 
 # ---------- PAGE CONFIG ----------
 st.set_page_config(page_title="Email Classifier", layout="wide", page_icon="📧")
