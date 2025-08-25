@@ -7,7 +7,6 @@ import matplotlib.pyplot as plt
 import seaborn as sns
 from sklearn.manifold import TSNE
 
-from data_loader import load_data
 from corrections_handler import count_corrections, save_correction, get_corrections_df
 
 from tfidf_classifier import (
