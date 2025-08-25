@@ -25,10 +25,10 @@ def train_naive_bayes(file_path="data/emails.csv"):
     # tạo thư mục models nếu chưa có
     os.makedirs("models", exist_ok=True)
 
-    joblib.dump(clf, MODEL_SVM)
+    joblib.dump(clf, MODEL_NB)
     joblib.dump(vectorizer, "models/tfidf.pkl")
 
-    print(f"✅ SVM model saved at {MODEL_SVM}")
+    print(f"✅ Naive Bayes model saved at {MODEL_NB}")
     print(f"✅ TF-IDF vectorizer saved at {MODEL_TFIDF}")
     
     preds = clf.predict(X_test)
@@ -49,6 +49,15 @@ def train_svm(file_path="data/emails.csv"):
     clf.fit(X_train, y_train)
     joblib.dump(clf, MODEL_SVM)
 
+    # tạo thư mục models nếu chưa có
+    os.makedirs("models", exist_ok=True)
+
+    joblib.dump(clf, MODEL_SVM)
+    joblib.dump(vectorizer, MODEL_TFIDF)
+
+    print(f"✅ SVM model saved at {MODEL_SVM}")
+    print(f"✅ TF-IDF vectorizer saved at {MODEL_TFIDF}")
+    
     preds = clf.predict(X_test)
     return classification_report(y_test, preds), confusion_matrix(y_test, preds)
 
